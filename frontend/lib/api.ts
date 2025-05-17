@@ -1,6 +1,6 @@
 const API_BASE_URL = "http://localhost:8080/api"
 
-import { getToken } from "./auth"
+import { getToken, getCurrentUser } from "./auth"
 
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
@@ -20,6 +20,9 @@ async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise
     })
 
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Unauthorized: Invalid or expired token. Please log in again.")
+      }
       try {
         const errorData = await response.json()
         throw new Error(errorData.message || `API error: ${response.status}`)
@@ -46,11 +49,11 @@ export interface Certificate {
   recipientEmail: string
   certificateTitle: string
   issueDate: string
+  issuerId: string
   issuerName: string
   description: string
   blockNumber: number
   timestamp: string
-  issuerId?: string
 }
 
 export interface CertificateRequest {
@@ -71,6 +74,7 @@ export interface RegisterRequest {
   name: string
   email: string
   password: string
+  role?: string
 }
 
 export interface AuthResponse {
@@ -79,6 +83,7 @@ export interface AuthResponse {
     id: string
     name: string
     email: string
+    role: string
     createdAt: string
     updatedAt: string
   }
@@ -122,10 +127,20 @@ export async function getUserCertificates(userId: string): Promise<Certificate[]
 }
 
 export async function getUserIssuedCertificates(): Promise<Certificate[]> {
-  return fetchAPI<Certificate[]>("/certificates")
+  const user = getCurrentUser()
+  if (!user) {
+    throw new Error("User not authenticated")
+  }
+
+  const allCerts = await getAllCertificates()
+  return allCerts.filter((cert) => cert.issuerId === user.id)
 }
 
-export async function getUserReceivedCertificates(email: string): Promise<Certificate[]> {
-  const allCerts = await getAllCertificates()
-  return allCerts.filter((cert) => cert.recipientEmail === email)
+export async function getUserReceivedCertificates(): Promise<Certificate[]> {
+  const user = getCurrentUser()
+  if (!user) {
+    throw new Error("User not authenticated")
+  }
+
+  return fetchAPI<Certificate[]>(`/users/${user.id}/certificates`)
 }
