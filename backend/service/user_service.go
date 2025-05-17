@@ -18,7 +18,6 @@ func NewUserService(repo *repository.UserRepository) *UserService {
 }
 
 func (s *UserService) CreateUser(req domain.UserRequest) (*domain.User, error) {
-
 	_, err := s.repo.FindByEmail(req.Email)
 	if err == nil {
 		return nil, fmt.Errorf("user with email %s already exists", req.Email)
@@ -28,6 +27,7 @@ func (s *UserService) CreateUser(req domain.UserRequest) (*domain.User, error) {
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
+		Role:     req.Role,
 	}
 
 	if err := s.repo.Save(user); err != nil {
@@ -47,4 +47,17 @@ func (s *UserService) GetUserByEmail(email string) (*domain.User, error) {
 
 func (s *UserService) GetAllUsers() ([]*domain.User, error) {
 	return s.repo.FindAll()
+}
+
+func (s *UserService) DeleteUser(id string) error {
+	user, err := s.repo.FindByID(id)
+	if err != nil {
+		return fmt.Errorf("user with ID %s not found", id)
+	}
+
+	if user.Role == "admin" {
+		return fmt.Errorf("cannot delete admin user")
+	}
+
+	return s.repo.Delete(id)
 }

@@ -2,10 +2,14 @@ package service
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"certificate-ledger/domain"
 	"certificate-ledger/repository"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthService struct {
@@ -24,10 +28,21 @@ func (s *AuthService) Register(req domain.UserRequest) (*domain.User, error) {
 		return nil, fmt.Errorf("user with email %s already exists", req.Email)
 	}
 
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %v", err)
+	}
+
+	role := req.Role
+	if role == "" {
+		role = "user"
+	}
+
 	user := &domain.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: req.Password, 
+		Name:      req.Name,
+		Email:     req.Email,
+		Password:  string(hashedPassword),
+		Role:      role,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -40,20 +55,27 @@ func (s *AuthService) Register(req domain.UserRequest) (*domain.User, error) {
 }
 
 func (s *AuthService) Login(req domain.LoginRequest) (*domain.AuthResponse, error) {
-
 	user, err := s.repo.FindByEmail(req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("invalid email or password")
 	}
 
-	if user.Password != req.Password {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		return nil, fmt.Errorf("invalid email or password")
 	}
 
-	token := "dummy-token-" + user.ID
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"role":    user.Role,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+	})
+	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %v", err)
+	}
 
 	return &domain.AuthResponse{
-		Token: token,
+		Token: tokenString,
 		User:  *user,
 	}, nil
 }

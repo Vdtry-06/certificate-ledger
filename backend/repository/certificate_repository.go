@@ -1,92 +1,191 @@
 package repository
 
 import (
+	"database/sql"
 	"fmt"
-	"sync"
 
 	"certificate-ledger/domain"
 )
 
 type CertificateRepository struct {
-	certificates map[string]*domain.Certificate
-	mu           sync.RWMutex
+	db *sql.DB
 }
 
-func NewCertificateRepository() *CertificateRepository {
-	return &CertificateRepository{
-		certificates: make(map[string]*domain.Certificate),
-	}
+func NewCertificateRepository(db *sql.DB) *CertificateRepository {
+	return &CertificateRepository{db: db}
 }
 
 func (r *CertificateRepository) Save(cert *domain.Certificate) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	
-	r.certificates[cert.ID] = cert
+	query := `
+		INSERT INTO certificates (id, hash, recipient_name, recipient_email, certificate_title, issue_date, issuer_id, issuer_name, description, block_number, timestamp)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.db.Exec(query,
+		cert.ID,
+		cert.Hash,
+		cert.RecipientName,
+		cert.RecipientEmail,
+		cert.CertificateTitle,
+		cert.IssueDate,
+		cert.IssuerID,
+		cert.IssuerName,
+		cert.Description,
+		cert.BlockNumber,
+		cert.Timestamp,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to save certificate: %v", err)
+	}
 	return nil
 }
 
 func (r *CertificateRepository) FindByID(id string) (*domain.Certificate, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	
-	cert, ok := r.certificates[id]
-	if !ok {
+	query := `SELECT id, hash, recipient_name, recipient_email, certificate_title, issue_date, issuer_id, issuer_name, description, block_number, timestamp
+	          FROM certificates WHERE id = ?`
+	row := r.db.QueryRow(query, id)
+
+	var cert domain.Certificate
+	err := row.Scan(
+		&cert.ID,
+		&cert.Hash,
+		&cert.RecipientName,
+		&cert.RecipientEmail,
+		&cert.CertificateTitle,
+		&cert.IssueDate,
+		&cert.IssuerID,
+		&cert.IssuerName,
+		&cert.Description,
+		&cert.BlockNumber,
+		&cert.Timestamp,
+	)
+	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("certificate with ID %s not found", id)
 	}
-	
-	return cert, nil
+	if err != nil {
+		return nil, fmt.Errorf("failed to find certificate: %v", err)
+	}
+	return &cert, nil
 }
 
 func (r *CertificateRepository) FindByHash(hash string) (*domain.Certificate, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	
-	for _, cert := range r.certificates {
-		if cert.Hash == hash {
-			return cert, nil
-		}
+	query := `SELECT id, hash, recipient_name, recipient_email, certificate_title, issue_date, issuer_id, issuer_name, description, block_number, timestamp
+	          FROM certificates WHERE hash = ?`
+	row := r.db.QueryRow(query, hash)
+
+	var cert domain.Certificate
+	err := row.Scan(
+		&cert.ID,
+		&cert.Hash,
+		&cert.RecipientName,
+		&cert.RecipientEmail,
+		&cert.CertificateTitle,
+		&cert.IssueDate,
+		&cert.IssuerID,
+		&cert.IssuerName,
+		&cert.Description,
+		&cert.BlockNumber,
+		&cert.Timestamp,
+	)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("certificate with hash %s not found", hash)
 	}
-	
-	return nil, fmt.Errorf("certificate with hash %s not found", hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find certificate: %v", err)
+	}
+	return &cert, nil
 }
 
 func (r *CertificateRepository) FindAll() ([]*domain.Certificate, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	
-	certs := make([]*domain.Certificate, 0, len(r.certificates))
-	for _, cert := range r.certificates {
-		certs = append(certs, cert)
+	query := `SELECT id, hash, recipient_name, recipient_email, certificate_title, issue_date, issuer_id, issuer_name, description, block_number, timestamp
+	          FROM certificates`
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query certificates: %v", err)
 	}
-	
+	defer rows.Close()
+
+	var certs []*domain.Certificate
+	for rows.Next() {
+		var cert domain.Certificate
+		if err := rows.Scan(
+			&cert.ID,
+			&cert.Hash,
+			&cert.RecipientName,
+			&cert.RecipientEmail,
+			&cert.CertificateTitle,
+			&cert.IssueDate,
+			&cert.IssuerID,
+			&cert.IssuerName,
+			&cert.Description,
+			&cert.BlockNumber,
+			&cert.Timestamp,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan certificate: %v", err)
+		}
+		certs = append(certs, &cert)
+	}
 	return certs, nil
 }
 
 func (r *CertificateRepository) FindByIssuerID(userID string) ([]*domain.Certificate, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	
-	var certs []*domain.Certificate
-	for _, cert := range r.certificates {
-		if cert.IssuerID == userID {
-			certs = append(certs, cert)
-		}
+	query := `SELECT id, hash, recipient_name, recipient_email, certificate_title, issue_date, issuer_id, issuer_name, description, block_number, timestamp
+	          FROM certificates WHERE issuer_id = ?`
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query certificates: %v", err)
 	}
-	
+	defer rows.Close()
+
+	var certs []*domain.Certificate
+	for rows.Next() {
+		var cert domain.Certificate
+		if err := rows.Scan(
+			&cert.ID,
+			&cert.Hash,
+			&cert.RecipientName,
+			&cert.RecipientEmail,
+			&cert.CertificateTitle,
+			&cert.IssueDate,
+			&cert.IssuerID,
+			&cert.IssuerName,
+			&cert.Description,
+			&cert.BlockNumber,
+			&cert.Timestamp,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan certificate: %v", err)
+		}
+		certs = append(certs, &cert)
+	}
 	return certs, nil
 }
 
 func (r *CertificateRepository) FindByRecipientEmail(email string) ([]*domain.Certificate, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	
-	var certs []*domain.Certificate
-	for _, cert := range r.certificates {
-		if cert.RecipientEmail == email {
-			certs = append(certs, cert)
-		}
+	query := `SELECT id, hash, recipient_name, recipient_email, certificate_title, issue_date, issuer_id, issuer_name, description, block_number, timestamp
+	          FROM certificates WHERE recipient_email = ?`
+	rows, err := r.db.Query(query, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query certificates: %v", err)
 	}
-	
+	defer rows.Close()
+
+	var certs []*domain.Certificate
+	for rows.Next() {
+		var cert domain.Certificate
+		if err := rows.Scan(
+			&cert.ID,
+			&cert.Hash,
+			&cert.RecipientName,
+			&cert.RecipientEmail,
+			&cert.CertificateTitle,
+			&cert.IssueDate,
+			&cert.IssuerID,
+			&cert.IssuerName,
+			&cert.Description,
+			&cert.BlockNumber,
+			&cert.Timestamp,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan certificate: %v", err)
+		}
+		certs = append(certs, &cert)
+	}
 	return certs, nil
 }
