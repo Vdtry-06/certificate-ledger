@@ -21,6 +21,7 @@ export default function Register() {
     name: "",
     email: "",
     password: "",
+    role: "user", // Thêm role mặc định
   })
   const [confirmPassword, setConfirmPassword] = useState("")
 
