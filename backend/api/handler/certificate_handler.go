@@ -6,6 +6,7 @@ import (
 
 	"certificate-ledger/domain"
 	"certificate-ledger/service"
+
 	"github.com/gorilla/mux"
 )
 
@@ -20,23 +21,27 @@ func NewCertificateHandler(service *service.CertificateService) *CertificateHand
 }
 
 func (h *CertificateHandler) CreateCertificate(w http.ResponseWriter, r *http.Request) {
-	var req domain.CertificateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+    var req domain.CertificateRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
 
-	userID := "user123"
+    user, ok := r.Context().Value("user").(*domain.User)
+    if !ok || user == nil {
+        http.Error(w, "Unauthorized: User not found in context", http.StatusUnauthorized)
+        return
+    }
 
-	cert, err := h.service.CreateCertificate(req, userID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+    cert, err := h.service.CreateCertificate(req, user.ID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(cert)
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(cert)
 }
 
 func (h *CertificateHandler) GetCertificate(w http.ResponseWriter, r *http.Request) {
