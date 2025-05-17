@@ -55,3 +55,28 @@ func (h *UserHandler) GetUserCertificates(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode([]interface{}{})
 }
+
+func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	// TODO: Kiểm tra quyền admin qua JWT
+	users, err := h.service.GetAllUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	// TODO: Kiểm tra quyền admin qua JWT
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	if err := h.service.DeleteUser(id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
