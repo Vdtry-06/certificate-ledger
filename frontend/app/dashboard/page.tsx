@@ -23,7 +23,6 @@ export default function Dashboard() {
     const fetchCertificates = async () => {
       setIsLoading(true)
       try {
-
         const user = getCurrentUser()
 
         if (!user) {
@@ -36,7 +35,7 @@ export default function Dashboard() {
         const issued = await getUserIssuedCertificates()
         setIssuedCertificates(issued)
 
-        const received = await getUserReceivedCertificates(user.email)
+        const received = await getUserReceivedCertificates()
         setReceivedCertificates(received)
       } catch (error) {
         toast.error("Error", {
@@ -66,8 +65,8 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen flex-col">
-    <Header />
-    <div className="container max-w-5xl px-4 mx-auto py-10">
+      <Header />
+      <div className="container max-w-5xl px-4 mx-auto py-10">
         <div className="mb-8">
           <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground">
             <ChevronLeft className="mr-1 h-4 w-4" />
@@ -102,7 +101,7 @@ export default function Dashboard() {
           <TabsContent value="issued">
             <Card>
               <CardHeader>
-                <CardTitle>Certificates You have Issued</CardTitle>
+                <CardTitle>Certificates You Have Issued</CardTitle>
                 <CardDescription>View and manage all certificates you have issued on the blockchain.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -163,7 +162,7 @@ export default function Dashboard() {
           <TabsContent value="received">
             <Card>
               <CardHeader>
-                <CardTitle>Certificates You have Received</CardTitle>
+                <CardTitle>Certificates You Have Received</CardTitle>
                 <CardDescription>View all certificates that have been issued to you.</CardDescription>
               </CardHeader>
               <CardContent>
